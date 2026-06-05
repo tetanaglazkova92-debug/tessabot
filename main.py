@@ -479,6 +479,103 @@ def send_telegram_notification(user_id, text, keyboard=None):
         print(f"Telegram error: {e}")
 
 
+MODEL_BUTTONS = [
+    [
+        {"text": "👗 Льон", "callback_data": "model_linen"},
+        {"text": "🌸 Гортензія", "callback_data": "model_gortenzia"},
+        {"text": "👗 Tessa", "callback_data": "model_tessa"},
+    ],
+    [
+        {"text": "✨ Angel", "callback_data": "model_angel"},
+        {"text": "🤍 Корсет Angel", "callback_data": "model_corset"},
+        {"text": "💙 Ariel", "callback_data": "model_ariel"},
+    ],
+    [
+        {"text": "🩵 Emi", "callback_data": "model_emi"},
+        {"text": "🖤 March", "callback_data": "model_march"},
+        {"text": "🎂 Birthday", "callback_data": "model_birthday"},
+    ],
+    [
+        {"text": "🤍 Melissa сукня", "callback_data": "model_melissa_dress"},
+        {"text": "🖤 Melissa боді", "callback_data": "model_melissa_bodi"},
+        {"text": "🌊 Mermaid", "callback_data": "model_mermaid"},
+    ],
+    [
+        {"text": "🪶 Belle", "callback_data": "model_belle"},
+        {"text": "🤍 Muse", "callback_data": "model_muse"},
+        {"text": "🧥 Тренч", "callback_data": "model_trench"},
+    ],
+    [
+        {"text": "🫐 Soul боді", "callback_data": "model_soul"},
+        {"text": "🧡 Жакет", "callback_data": "model_jacket"},
+        {"text": "🪶 Юбка пір'я", "callback_data": "model_feather_skirt"},
+    ],
+    [
+        {"text": "▶️ Бот активний (без відповіді)", "callback_data": f"resume_USERID"}
+    ]
+]
+
+MODEL_INFO = {
+    "linen": "Сукня з льону 🌿\nКольори: молочний, рожевий, блакитний\nТканина: льон + віскоза, практично не мнеться\nРозміри: S (XS-S), M (M-L) — запахний крій\nЦіна: 3150 грн",
+    "gortenzia": "Сукня Гортензія 🌸\nКольори: квітково-блакитна, квітково-пастельна\nТканина: льон + віскоза\nРозміри: XS, S, M\nЦіна: 3490 грн\nВідкрита спина з бантом",
+    "tessa": "Сукня Tessa 🌸\nКольори: рожева, квітково-рожева, квітково-блакитна (+інд.)\nТканина: преміум органза\nРозміри: XS, S, M\nЦіна: 3650 грн\nВідкрита спина, довжина 79 см",
+    "angel": "Сукня Angel ✨\nКольори: чорний, білий, червоний\nТканина: атлас + пір'я\nЦіна: 4690 грн\nДовжина: 83 см",
+    "corset": "Корсет Angel 🤍\nКольори: чорний, білий, червоний\nТканина: атлас + пір'я\nЦіна: 3590 грн",
+    "ariel": "Сукня Ariel 💙\nКолір: блакитний (+інд. +500 грн)\nТканина: преміум органза\nРозміри: XS, S, M\nЦіна: 4690 грн\nАсиметричний крій: права 37 см, ліва 44 см",
+    "emi": "Сукня Emi 🩵\nКольори: темно-синій (довгий рукав), блакитний (короткий)\nТканина: шифон\nРозміри: XS, S, M\nЦіна: 3150 грн",
+    "march": "Сукня March 🖤\nЖакард: молочний, чорний — 5100 грн\nЛьон: рожевий — 3750 грн\nРозміри: XS, S, M\nДовжина: 83 см",
+    "birthday": "Сукня Birthday 🎂\nКольори: чорний, білий (+інд.)\nТканина: атлас\nРозміри: XS, S, M\nЦіна: 3400 грн\nДовжина: 83 см",
+    "melissa_dress": "Сукня Melissa 🤍\nКольори: чорний, білий (+інд.)\nТканина: верх мікромасло + спідниця атлас\nРозміри: XS, S, M\nЦіна: 3790 грн\nСпідниця 40 см, не відстібається",
+    "melissa_bodi": "Боді Melissa 🖤\nКольори: чорний, молочний, бордовий (+інд.)\nТканина: мікромасло\nРозміри: XS, S, M\nЦіна: 1790 грн\nСпина закрита",
+    "mermaid": "Костюм Mermaid 🌊\nКолір: шампань/нюд\nТканина: сітка з блискітками\nКомплект: топ + спідниця\nМіні: 5500 грн / Максі: 6100 грн\nУточнити зріст!",
+    "belle": "Сукня Belle 🪶\nКолір: срібний (пайєтки)\nДеталі: пір'я по низу, відкрита спина, стрази\nРозміри: XS, S, M\nЦіна: 6400 грн",
+    "muse": "Сукня Muse 🤍\nКолір: білий (+інд.)\nТканина: мереживо щільне\nРозміри: XS, S, M\nЦіна: 4300 грн\n⚠️ Наразі немає тканини, буде у червні",
+    "trench": "Тренч 🧥\nКотон: синій, кемел / Шкіра: шоколад\nРозміри: S (XS-S), M (M-L)\nЦіна: 4250 грн\nДовжина: 63 см",
+    "soul": "Боді Soul 🫐\nКольори: білий, чорний, коричневий\nТканина: мікромасло\nРозміри: XS, S, M\nЦіна: 1490 грн",
+    "jacket": "Жакет 🧡\nКольори: молочний, кемел\nТканина: вовна 40% + віскоза 60%\nРозміри: XS, S, M\nЦіна: 4000 грн",
+    "feather_skirt": "Юбка з пір'ям 🪶\nКолір: чорний\nТканина: джинс\nЦіна: 2250 грн",
+}
+
+
+def forward_photo_to_telegram(user_id, image_url, user_message):
+    """Переслати фото клієнта менеджеру + кнопки всіх моделей"""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    client_name = get_instagram_name(user_id)
+    caption = (f"📸 *Клієнт надіслав фото!*\n"
+               f"👤 {client_name}  💬 {user_message or '(тільки фото)'}\n\n"
+               f"Натисни яка це модель 👇")
+
+    # Замінюємо USERID на реальний user_id в кнопках
+    buttons = []
+    for row in MODEL_BUTTONS:
+        new_row = []
+        for btn in row:
+            new_row.append({
+                "text": btn["text"],
+                "callback_data": btn["callback_data"].replace("USERID", user_id) + f"_{user_id}"
+            })
+        buttons.append(new_row)
+    keyboard = {"inline_keyboard": buttons}
+
+    data = json.dumps({
+        "chat_id": TELEGRAM_CHAT_ID,
+        "photo": image_url,
+        "caption": caption,
+        "parse_mode": "Markdown",
+        "reply_markup": keyboard
+    }).encode("utf-8")
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendPhoto"
+    req = urllib.request.Request(url, data=data,
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        urllib.request.urlopen(req)
+        print(f"Photo forwarded to Telegram for {user_id}")
+    except Exception as e:
+        print(f"Photo forward error: {e}")
+        send_telegram_notification(user_id, caption, keyboard)
+
+
 def notify_telegram_photo(user_id, user_message, photo_name):
     """Сповістити менеджера що потрібно скинути фото"""
     client_name = get_instagram_name(user_id)
@@ -522,18 +619,38 @@ def handle_telegram_callback(callback_query):
     """Обробка натискання кнопок в Telegram"""
     callback_id = callback_query.get("id")
     data = callback_query.get("data", "")
-    chat_id = callback_query.get("message", {}).get("chat", {}).get("id")
 
     if data.startswith("pause_"):
         user_id = data[6:]
         paused_users.add(user_id)
-        answer_text = f"⏸ Бот на паузі для клієнта. Відповідай сам!"
+        answer_text = "⏸ Бот на паузі. Відповідай сам!"
         print(f"Bot paused for {user_id}")
+
     elif data.startswith("resume_"):
         user_id = data[7:]
         paused_users.discard(user_id)
-        answer_text = f"▶️ Бот знову активний для клієнта!"
+        answer_text = "▶️ Бот активний!"
         print(f"Bot resumed for {user_id}")
+
+    elif data.startswith("model_"):
+        # Формат: model_НАЗВА_USERID
+        parts = data.split("_")
+        # user_id — останній елемент
+        user_id = parts[-1]
+        # назва моделі — все між "model_" і "_USERID"
+        model_key = "_".join(parts[1:-1])
+
+        info = MODEL_INFO.get(model_key)
+        if info and user_id:
+            # Відправляємо інфо про модель клієнту
+            send_instagram_message(user_id, info)
+            # Активуємо бота
+            paused_users.discard(user_id)
+            answer_text = f"✅ Відповідь надіслана! Бот активний."
+        else:
+            answer_text = "❓ Модель не знайдена"
+        print(f"Model {model_key} sent to {user_id}")
+
     else:
         answer_text = "OK"
 
@@ -678,6 +795,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     continue
 
                 print(f"Message from {sender_id}: {message_text[:100]}")
+
+                # Якщо клієнт надіслав фото — пересилаємо менеджеру з кнопками моделей
+                if image_url and not message_text:
+                    send_instagram_message(sender_id, "Секунду 🤍")
+                    paused_users.add(sender_id)
+                    forward_photo_to_telegram(sender_id, image_url, message_text)
+                    continue
 
                 # Отримуємо відповідь від Claude
                 reply = get_claude_reply(sender_id, message_text, image_url)
