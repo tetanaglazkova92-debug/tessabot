@@ -4,7 +4,11 @@ import urllib.request
 import urllib.error
 import urllib.parse
 import base64
-from http.server import HTTPServer, BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn, TCPServer
+
+class ThreadingHTTPServer(ThreadingMixIn, TCPServer):
+    allow_reuse_address = True
 
 # === НАЛАШТУВАННЯ ===
 VERIFY_TOKEN       = os.environ.get("VERIFY_TOKEN", "tessa_verify_2024")
@@ -295,8 +299,8 @@ SYSTEM = """Ти — дружелюбний менеджер інтернет-м
 - TESSA → [IMG:tessa]
 - MERMAID (Русалка) → [IMG:mermaid]"""
 
-# Базовий URL сервера для фото
-BASE_URL = os.environ.get("BASE_URL", "https://web-production-68a73.up.railway.app")
+# Базовий URL для фото (GitHub raw — завжди доступний для Instagram)
+BASE_URL = "https://raw.githubusercontent.com/tetanaglazkova92-debug/tessabot/main"
 
 # Маппінг IMG-тегів до файлів
 IMG_MAP = {
@@ -682,5 +686,5 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     print(f"✅ Tessa Instagram Bot запущено на порту {port}")
     print(f"   Webhook: POST/GET /webhook")
-    server = HTTPServer(("0.0.0.0", port), WebhookHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), WebhookHandler)
     server.serve_forever()
