@@ -385,9 +385,27 @@ class WebhookHandler(BaseHTTPRequestHandler):
         pass  # Вимикаємо стандартні логи
 
     def do_GET(self):
-        """Верифікація webhook від Meta"""
+        """Верифікація webhook від Meta + Privacy Policy"""
         parsed = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed.query)
+
+        # Privacy Policy page
+        if parsed.path == "/privacy":
+            html = b"""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Privacy Policy - Tessa Brand Bot</title></head><body>
+<h1>Privacy Policy</h1><p>Last updated: June 2026</p>
+<p>Tessa Brand ("we") operates the Tessa Brand Instagram messaging bot.</p>
+<h2>Information We Collect</h2>
+<p>We collect messages sent to our Instagram account to provide customer support and product information. We do not store personal data beyond the conversation session.</p>
+<h2>How We Use Information</h2>
+<p>Messages are processed to provide automated responses about our products. We do not share, sell, or transfer your data to third parties.</p>
+<h2>Contact</h2>
+<p>Questions? Contact us at tessa_brand_store on Instagram.</p>
+</body></html>"""
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(html)
+            return
 
         mode      = params.get("hub.mode",         [""])[0]
         token     = params.get("hub.verify_token", [""])[0]
