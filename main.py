@@ -114,6 +114,7 @@ SYSTEM = """Ти — дружелюбний менеджер інтернет-м
 - Розміри: XS, S, M
 - Ціна: 3400 грн
 - Довжина: 83 см
+- Вигляд: приталена міні-сукня з відкритою спиною, тонкі бретельки. Без банта та інших декоративних елементів.
 
 СУКНЯ MUSE:
 - Колір: білий (індивідуально — будь-який колір)
@@ -299,8 +300,8 @@ SYSTEM = """Ти — дружелюбний менеджер інтернет-м
 - TESSA → [IMG:tessa]
 - MERMAID (Русалка) → [IMG:mermaid]"""
 
-# Базовий URL для фото (GitHub raw — завжди доступний для Instagram)
-BASE_URL = "https://raw.githubusercontent.com/tetanaglazkova92-debug/tessabot/main"
+# Базовий URL для фото — наш Railway сервер
+BASE_URL = os.environ.get("BASE_URL", "https://web-production-68a73.up.railway.app")
 
 # Маппінг IMG-тегів до файлів
 IMG_MAP = {
