@@ -333,7 +333,7 @@ def send_instagram_message(recipient_id, text):
             "message": {"text": chunk}
         }).encode("utf-8")
 
-        url = f"https://graph.facebook.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+        url = f"https://graph.instagram.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
         req = urllib.request.Request(url, data=data,
                                      headers={"Content-Type": "application/json"}, method="POST")
         try:
