@@ -447,12 +447,15 @@ def send_instagram_image(recipient_id, img_key):
 
 
 def get_instagram_name(user_id):
-    """Отримати ім'я клієнта з Instagram"""
+    """Отримати нік клієнта з Instagram"""
     try:
-        url = f"https://graph.instagram.com/v21.0/{user_id}?fields=name&access_token={PAGE_ACCESS_TOKEN}"
+        url = f"https://graph.instagram.com/v21.0/{user_id}?fields=username,name&access_token={PAGE_ACCESS_TOKEN}"
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=5) as r:
             data = json.loads(r.read())
+            username = data.get("username")
+            if username:
+                return f"@{username}"
             return data.get("name", user_id)
     except:
         return user_id
