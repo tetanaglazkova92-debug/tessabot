@@ -456,6 +456,38 @@ def get_instagram_name(user_id):
         return user_id
 
 
+def send_telegram_notification(user_id, text, keyboard=None):
+    """Відправити повідомлення в Telegram"""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "Markdown"}
+    if keyboard:
+        payload["reply_markup"] = keyboard
+    data = json.dumps(payload).encode("utf-8")
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    req = urllib.request.Request(url, data=data,
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        urllib.request.urlopen(req)
+    except Exception as e:
+        print(f"Telegram error: {e}")
+
+
+def notify_telegram_photo(user_id, user_message, photo_name):
+    """Сповістити менеджера що потрібно скинути фото"""
+    client_name = get_instagram_name(user_id)
+    text = (f"📸 *Клієнт просить фото!*\n\n"
+            f"👤 Клієнт: {client_name}\n"
+            f"💬 Питання: {user_message}\n"
+            f"🎯 Фото: *{photo_name}*\n\n"
+            f"Скинь фото в Instagram Direct і натисни кнопку ↓")
+    keyboard = {"inline_keyboard": [[
+        {"text": "▶️ Готово, бот активний", "callback_data": f"resume_{user_id}"}
+    ]]}
+    send_telegram_notification(user_id, text, keyboard)
+    print(f"Photo request sent to Telegram for {user_id}")
+
+
 def notify_telegram(user_id, user_message, bot_reply):
     """Сповістити власника в Telegram коли потрібен менеджер"""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
@@ -464,41 +496,20 @@ def notify_telegram(user_id, user_message, bot_reply):
     manager_phrases = ["старшому менеджеру", "старшего менеджера", "передам це питання",
                        "уточню на виробництві", "переключаю вас"]
     needs_manager = any(p in bot_reply.lower() for p in manager_phrases)
-
     if not needs_manager:
         return
 
-    # Отримуємо ім'я клієнта
     client_name = get_instagram_name(user_id)
-
     text = (f"🔔 *Потрібен менеджер!*\n\n"
             f"👤 Клієнт: {client_name}\n"
             f"💬 Питання: {user_message}\n"
             f"🤖 Бот відповів: {bot_reply}")
-
-    # Кнопки: Пауза бота / Бот активний
-    keyboard = {
-        "inline_keyboard": [[
-            {"text": "⏸ Взяти в роботу", "callback_data": f"pause_{user_id}"},
-            {"text": "▶️ Бот активний", "callback_data": f"resume_{user_id}"}
-        ]]
-    }
-
-    data = json.dumps({
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": text,
-        "parse_mode": "Markdown",
-        "reply_markup": keyboard
-    }).encode("utf-8")
-
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    req = urllib.request.Request(url, data=data,
-                                 headers={"Content-Type": "application/json"}, method="POST")
-    try:
-        urllib.request.urlopen(req)
-        print(f"Telegram notified for user {user_id} ({client_name})")
-    except Exception as e:
-        print(f"Telegram error: {e}")
+    keyboard = {"inline_keyboard": [[
+        {"text": "⏸ Взяти в роботу", "callback_data": f"pause_{user_id}"},
+        {"text": "▶️ Бот активний", "callback_data": f"resume_{user_id}"}
+    ]]}
+    send_telegram_notification(user_id, text, keyboard)
+    print(f"Telegram notified for user {user_id} ({client_name})")
 
 
 def handle_telegram_callback(callback_query):
@@ -666,21 +677,48 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 reply = get_claude_reply(sender_id, message_text, image_url)
                 print(f"Reply: {reply[:100]}")
 
-                # Парсимо [IMG:key] теги
                 import re
                 img_keys = re.findall(r'\[IMG:(\w+)\]', reply)
+                # Прибираємо size_ теги окремо — вони для розмірних сіток
+                photo_keys = [k for k in img_keys if not k.startswith("size_")]
+                size_keys = [k for k in img_keys if k.startswith("size_")]
                 clean_reply = re.sub(r'\[IMG:[^\]]+\]', '', reply).strip()
 
-                # Відправляємо текст
-                if clean_reply:
-                    send_instagram_message(sender_id, clean_reply)
+                if photo_keys:
+                    # Клієнт просить фото → бот каже "секунду" і ставить паузу
+                    lang = "uk"  # визначаємо мову з повідомлення
+                    if any(c in message_text.lower() for c in ["фото", "покажи", "показать", "можно фото", "photo"]):
+                        wait_msg = "Секунду, зараз скинемо фотографії 🤍"
+                    else:
+                        wait_msg = "Секунду 🤍"
 
-                # Відправляємо фото
-                for key in img_keys:
-                    send_instagram_image(sender_id, key)
+                    # Надсилаємо текстову відповідь без фото
+                    if clean_reply:
+                        send_instagram_message(sender_id, clean_reply)
+                    send_instagram_message(sender_id, wait_msg)
 
-                # Сповіщуємо Telegram якщо потрібен менеджер
-                notify_telegram(sender_id, message_text, reply)
+                    # Ставимо бота на паузу
+                    paused_users.add(sender_id)
+
+                    # Визначаємо назви потрібних фото
+                    photo_names = []
+                    for key in photo_keys:
+                        filename = IMG_MAP.get(key, key)
+                        photo_names.append(filename.replace(".jpg", "").replace("_", " "))
+
+                    notify_telegram_photo(sender_id, message_text,
+                                          ", ".join(photo_names) if photo_names else "фото моделі")
+                else:
+                    # Звичайна відповідь без фото
+                    if clean_reply:
+                        send_instagram_message(sender_id, clean_reply)
+
+                    # Розмірні сітки поки відправляємо текстом (або можна додати фото пізніше)
+                    for key in size_keys:
+                        send_instagram_image(sender_id, key)
+
+                    # Сповіщуємо Telegram якщо потрібен менеджер
+                    notify_telegram(sender_id, message_text, reply)
 
 
 if __name__ == "__main__":
