@@ -471,8 +471,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 reply = get_claude_reply(sender_id, message_text, image_url)
                 print(f"Reply: {reply[:100]}")
 
+                # Прибираємо [IMG:...] теги з тексту (фото поки не підтримуються)
+                import re
+                clean_reply = re.sub(r'\[IMG:[^\]]+\]', '', reply).strip()
+
                 # Відправляємо відповідь в Instagram
-                send_instagram_message(sender_id, reply)
+                send_instagram_message(sender_id, clean_reply)
 
                 # Сповіщуємо Telegram якщо потрібен менеджер
                 notify_telegram(sender_id, message_text, reply)
