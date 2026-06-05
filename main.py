@@ -330,6 +330,9 @@ IMG_MAP = {
 
 # Зберігаємо історію розмов по кожному користувачу
 conversation_history = {}
+# Дедуплікація — зберігаємо оброблені ID повідомлень
+processed_mids = set()
+MAX_PROCESSED = 1000  # щоб не переповнювати пам'ять
 
 
 def get_claude_reply(user_id, message_text, image_url=None):
@@ -565,6 +568,16 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 message = event.get("message", {})
                 if not message or message.get("is_echo"):
                     continue
+
+                # Дедуплікація по message ID
+                mid = message.get("mid", "")
+                if mid and mid in processed_mids:
+                    print(f"⚠️ Duplicate message {mid}, skipping")
+                    continue
+                if mid:
+                    processed_mids.add(mid)
+                    if len(processed_mids) > MAX_PROCESSED:
+                        processed_mids.pop()
 
                 message_text = message.get("text", "")
                 image_url    = None
