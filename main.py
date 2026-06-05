@@ -260,6 +260,13 @@ SYSTEM = """Ти — дружелюбний менеджер інтернет-м
 - Кілька позицій: передоплата 300 грн за кожну одиницю окремо
 - Параметри Тані (модель): зріст 173 см, розмір XS, ОГ 82, ОТ 60, ОБ 90
 
+=== РОЗМІРНІ СІТКИ (фото) ===
+Коли клієнт питає про розміри — додай тег з розмірною сіткою:
+- Tessa, Гортензія → [IMG:size_tessa]
+- Angel, Ariel, Emi, March, Belle, Muse, Melissa, корсет, Birthday, Mermaid → [IMG:size_fitted]
+- Тренч → [IMG:size_trench]
+- Светр, льон — пояснюй текстом (S=XS-S, M=M-L)
+
 === ФОТО МОДЕЛЕЙ ===
 Коли клієнт питає про конкретну модель або просить показати фото — додай відповідний тег в кінці відповіді:
 - ANGEL чорна → [IMG:angel_black]
@@ -314,6 +321,8 @@ IMG_MAP = {
     "sweater": "sweater.jpg", "trench": "trench.jpg", "ariel": "ariel.jpg",
     "soul_bodi": "soul_bodi.jpg", "jacket": "jacket.jpg",
     "birthday": "birthday.jpg", "tessa": "tessa.jpg", "mermaid": "mermaid.jpg",
+    "size_tessa": "size_tessa.png", "size_fitted": "size_fitted.png",
+    "size_trench": "size_trench.png",
 }
 
 # Зберігаємо історію розмов по кожному користувачу
@@ -478,11 +487,12 @@ class WebhookHandler(BaseHTTPRequestHandler):
         if parsed.path.startswith("/photos/"):
             filename = parsed.path[8:]  # remove /photos/
             photo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "photos", filename)
-            if os.path.exists(photo_path) and filename.endswith(".jpg"):
+            if os.path.exists(photo_path) and (filename.endswith(".jpg") or filename.endswith(".png")):
                 with open(photo_path, "rb") as f:
                     data = f.read()
                 self.send_response(200)
-                self.send_header("Content-Type", "image/jpeg")
+                mime = "image/png" if filename.endswith(".png") else "image/jpeg"
+                self.send_header("Content-Type", mime)
                 self.send_header("Cache-Control", "public, max-age=86400")
                 self.end_headers()
                 self.wfile.write(data)
