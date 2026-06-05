@@ -324,8 +324,8 @@ def get_claude_reply(user_id, message_text, image_url=None):
 
 
 def send_instagram_message(recipient_id, text):
-    """Відправити повідомлення через Instagram API"""
-    # Розбиваємо довгі повідомлення (Instagram ліміт 1000 символів)
+    """Відправити повідомлення через Facebook Graph API (Instagram Business)"""
+    # Розбиваємо довгі повідомлення (ліміт 1000 символів)
     chunks = [text[i:i+950] for i in range(0, len(text), 950)]
     for chunk in chunks:
         data = json.dumps({
@@ -333,7 +333,7 @@ def send_instagram_message(recipient_id, text):
             "message": {"text": chunk}
         }).encode("utf-8")
 
-        url = f"https://graph.instagram.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+        url = f"https://graph.facebook.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
         req = urllib.request.Request(url, data=data,
                                      headers={"Content-Type": "application/json"}, method="POST")
         try:
@@ -341,7 +341,7 @@ def send_instagram_message(recipient_id, text):
                 print(f"Sent to {recipient_id}: {r.read()[:100]}")
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
-            print(f"Instagram send error {e.code}: {body}")
+            print(f"Send error {e.code}: {body}")
         except Exception as e:
             print(f"Send error: {e}")
 
@@ -420,7 +420,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
 
         print(f"Event: {json.dumps(body, ensure_ascii=False)[:300]}")
 
-        if body.get("object") != "instagram":
+        if body.get("object") not in ("instagram", "page"):
             return
 
         for entry in body.get("entry", []):
