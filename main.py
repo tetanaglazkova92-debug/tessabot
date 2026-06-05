@@ -324,6 +324,8 @@ conversation_history = {}
 # Дедуплікація — зберігаємо оброблені ID повідомлень
 processed_mids = set()
 MAX_PROCESSED = 1000  # щоб не переповнювати пам'ять
+# Клієнти для яких бот на паузі (менеджер відповідає)
+paused_users = set()
 
 
 def get_claude_reply(user_id, message_text, image_url=None):
@@ -437,12 +439,23 @@ def send_instagram_image(recipient_id, img_key):
         print(f"Send image error: {e}")
 
 
+def get_instagram_name(user_id):
+    """Отримати ім'я клієнта з Instagram"""
+    try:
+        url = f"https://graph.instagram.com/v21.0/{user_id}?fields=name&access_token={PAGE_ACCESS_TOKEN}"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req, timeout=5) as r:
+            data = json.loads(r.read())
+            return data.get("name", user_id)
+    except:
+        return user_id
+
+
 def notify_telegram(user_id, user_message, bot_reply):
     """Сповістити власника в Telegram коли потрібен менеджер"""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
 
-    # Перевіряємо чи бот передає питання менеджеру
     manager_phrases = ["старшому менеджеру", "старшего менеджера", "передам це питання",
                        "уточню на виробництві", "переключаю вас"]
     needs_manager = any(p in bot_reply.lower() for p in manager_phrases)
@@ -450,15 +463,27 @@ def notify_telegram(user_id, user_message, bot_reply):
     if not needs_manager:
         return
 
+    # Отримуємо ім'я клієнта
+    client_name = get_instagram_name(user_id)
+
     text = (f"🔔 *Потрібен менеджер!*\n\n"
-            f"👤 ID клієнта: `{user_id}`\n"
+            f"👤 Клієнт: {client_name}\n"
             f"💬 Питання: {user_message}\n"
-            f"🤖 Відповідь бота: {bot_reply}")
+            f"🤖 Бот відповів: {bot_reply}")
+
+    # Кнопки: Пауза бота / Бот активний
+    keyboard = {
+        "inline_keyboard": [[
+            {"text": "⏸ Взяти в роботу", "callback_data": f"pause_{user_id}"},
+            {"text": "▶️ Бот активний", "callback_data": f"resume_{user_id}"}
+        ]]
+    }
 
     data = json.dumps({
         "chat_id": TELEGRAM_CHAT_ID,
         "text": text,
-        "parse_mode": "Markdown"
+        "parse_mode": "Markdown",
+        "reply_markup": keyboard
     }).encode("utf-8")
 
     url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
@@ -466,9 +491,39 @@ def notify_telegram(user_id, user_message, bot_reply):
                                  headers={"Content-Type": "application/json"}, method="POST")
     try:
         urllib.request.urlopen(req)
-        print(f"Telegram notified for user {user_id}")
+        print(f"Telegram notified for user {user_id} ({client_name})")
     except Exception as e:
         print(f"Telegram error: {e}")
+
+
+def handle_telegram_callback(callback_query):
+    """Обробка натискання кнопок в Telegram"""
+    callback_id = callback_query.get("id")
+    data = callback_query.get("data", "")
+    chat_id = callback_query.get("message", {}).get("chat", {}).get("id")
+
+    if data.startswith("pause_"):
+        user_id = data[6:]
+        paused_users.add(user_id)
+        answer_text = f"⏸ Бот на паузі для клієнта. Відповідай сам!"
+        print(f"Bot paused for {user_id}")
+    elif data.startswith("resume_"):
+        user_id = data[7:]
+        paused_users.discard(user_id)
+        answer_text = f"▶️ Бот знову активний для клієнта!"
+        print(f"Bot resumed for {user_id}")
+    else:
+        answer_text = "OK"
+
+    # Підтверджуємо натискання кнопки
+    confirm_data = json.dumps({"callback_query_id": callback_id, "text": answer_text}).encode("utf-8")
+    req = urllib.request.Request(
+        f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/answerCallbackQuery",
+        data=confirm_data, headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        urllib.request.urlopen(req)
+    except:
+        pass
 
 
 class WebhookHandler(BaseHTTPRequestHandler):
@@ -531,7 +586,7 @@ class WebhookHandler(BaseHTTPRequestHandler):
             self.end_headers()
 
     def do_POST(self):
-        """Отримання повідомлень від Instagram"""
+        """Отримання повідомлень від Instagram та Telegram"""
         length = int(self.headers.get("Content-Length", 0))
         try:
             body = json.loads(self.rfile.read(length))
@@ -540,10 +595,14 @@ class WebhookHandler(BaseHTTPRequestHandler):
             self.end_headers()
             return
 
-        # Відповідаємо Meta одразу (вимога — відповісти протягом 20 сек)
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"OK")
+
+        # Обробка Telegram callback (кнопки)
+        if "callback_query" in body:
+            handle_telegram_callback(body["callback_query"])
+            return
 
         print(f"Event: {json.dumps(body, ensure_ascii=False)[:300]}")
 
@@ -589,6 +648,11 @@ class WebhookHandler(BaseHTTPRequestHandler):
                             message_text = att.get("title", "") or "Що це за модель на фото?"
 
                 if not message_text and not image_url:
+                    continue
+
+                # Якщо бот на паузі для цього клієнта — мовчимо
+                if sender_id in paused_users:
+                    print(f"⏸ Bot paused for {sender_id}, skipping")
                     continue
 
                 print(f"Message from {sender_id}: {message_text[:100]}")
