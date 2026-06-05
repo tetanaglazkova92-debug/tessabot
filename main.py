@@ -258,7 +258,63 @@ SYSTEM = """Ти — дружелюбний менеджер інтернет-м
 - Дропшипінг: не працюємо
 - Опт: від 10 одиниць — знижка 10%
 - Кілька позицій: передоплата 300 грн за кожну одиницю окремо
-- Параметри Тані (модель): зріст 173 см, розмір XS, ОГ 82, ОТ 60, ОБ 90"""
+- Параметри Тані (модель): зріст 173 см, розмір XS, ОГ 82, ОТ 60, ОБ 90
+
+=== ФОТО МОДЕЛЕЙ ===
+Коли клієнт питає про конкретну модель або просить показати фото — додай відповідний тег в кінці відповіді:
+- ANGEL чорна → [IMG:angel_black]
+- ANGEL червона → [IMG:angel_red]
+- ANGEL біла → [IMG:angel_white]
+- ANGEL (колір не уточнено) → [IMG:angel_black][IMG:angel_red][IMG:angel_white]
+- Корсет ANGEL чорний → [IMG:corset_black]
+- Корсет ANGEL червоний → [IMG:corset_red]
+- Корсет ANGEL (не уточнено) → [IMG:corset_black][IMG:corset_red]
+- EMI блакитна → [IMG:emi_blue]
+- EMI темно-синя → [IMG:emi_dark]
+- MARCH жакард молочний → [IMG:march_white]
+- MARCH жакард чорний → [IMG:march_black]
+- MARCH жакард (не уточнено) → [IMG:march_white][IMG:march_black]
+- MARCH льон → [IMG:march_linen]
+- MUSE → [IMG:muse]
+- BELLE → [IMG:belle]
+- ГОРТЕНЗІЯ → [IMG:gortenzia_1][IMG:gortenzia_2]
+- MELISSA сукня біла → [IMG:melissa_dress_white]
+- MELISSA сукня чорна → [IMG:melissa_dress_black]
+- MELISSA сукня (не уточнено) → [IMG:melissa_dress_white][IMG:melissa_dress_black]
+- MELISSA боді молочний → [IMG:melissa_bodi]
+- MELISSA боді чорний → [IMG:melissa_bodi_black]
+- MELISSA боді (не уточнено) → [IMG:melissa_bodi][IMG:melissa_bodi_black]
+- Сукня з льону → [IMG:linen_dress]
+- Светр → [IMG:sweater]
+- Тренч → [IMG:trench]
+- ARIEL → [IMG:ariel]
+- SOUL боді → [IMG:soul_bodi]
+- Жакет → [IMG:jacket]
+- BIRTHDAY → [IMG:birthday]
+- TESSA → [IMG:tessa]
+- MERMAID (Русалка) → [IMG:mermaid]"""
+
+# Базовий URL сервера для фото
+BASE_URL = os.environ.get("BASE_URL", "https://web-production-68a73.up.railway.app")
+
+# Маппінг IMG-тегів до файлів
+IMG_MAP = {
+    "angel": "angel.jpg", "angel_black": "angel_black.jpg",
+    "angel_red": "angel_red.jpg", "angel_white": "angel_white.jpg",
+    "corset_angel": "corset_angel.jpg", "corset_black": "corset_black.jpg",
+    "corset_red": "corset_red.jpg", "emi_blue": "emi_blue.jpg",
+    "emi_dark": "emi_dark.jpg", "march": "march.jpg",
+    "march_white": "march_white.jpg", "march_black": "march_black.jpg",
+    "march_linen": "march_linen.jpg", "muse": "muse.jpg",
+    "belle": "belle.jpg", "gortenzia": "gortenzia.jpg",
+    "gortenzia_1": "gortenzia_1.jpg", "gortenzia_2": "gortenzia_2.jpg",
+    "melissa_dress": "melissa_dress.jpg", "melissa_dress_white": "melissa_dress_white.jpg",
+    "melissa_dress_black": "melissa_dress_black.jpg", "melissa_bodi": "melissa_bodi.jpg",
+    "melissa_bodi_black": "melissa_bodi_black.jpg", "linen_dress": "linen_dress.jpg",
+    "sweater": "sweater.jpg", "trench": "trench.jpg", "ariel": "ariel.jpg",
+    "soul_bodi": "soul_bodi.jpg", "jacket": "jacket.jpg",
+    "birthday": "birthday.jpg", "tessa": "tessa.jpg", "mermaid": "mermaid.jpg",
+}
 
 # Зберігаємо історію розмов по кожному користувачу
 conversation_history = {}
@@ -325,26 +381,54 @@ def get_claude_reply(user_id, message_text, image_url=None):
 
 
 def send_instagram_message(recipient_id, text):
-    """Відправити повідомлення через Facebook Graph API (Instagram Business)"""
-    # Розбиваємо довгі повідомлення (ліміт 1000 символів)
+    """Відправити текстове повідомлення"""
     chunks = [text[i:i+950] for i in range(0, len(text), 950)]
     for chunk in chunks:
+        if not chunk.strip():
+            continue
         data = json.dumps({
             "recipient": {"id": recipient_id},
             "message": {"text": chunk}
         }).encode("utf-8")
-
         url = f"https://graph.instagram.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
         req = urllib.request.Request(url, data=data,
                                      headers={"Content-Type": "application/json"}, method="POST")
         try:
             with urllib.request.urlopen(req) as r:
-                print(f"Sent to {recipient_id}: {r.read()[:100]}")
+                print(f"Sent text to {recipient_id}: {r.read()[:80]}")
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
-            print(f"Send error {e.code}: {body}")
+            print(f"Send text error {e.code}: {body}")
         except Exception as e:
-            print(f"Send error: {e}")
+            print(f"Send text error: {e}")
+
+
+def send_instagram_image(recipient_id, img_key):
+    """Відправити фото через Instagram"""
+    filename = IMG_MAP.get(img_key)
+    if not filename:
+        return
+    img_url = f"{BASE_URL}/photos/{filename}"
+    data = json.dumps({
+        "recipient": {"id": recipient_id},
+        "message": {
+            "attachment": {
+                "type": "image",
+                "payload": {"url": img_url, "is_reusable": True}
+            }
+        }
+    }).encode("utf-8")
+    url = f"https://graph.instagram.com/v21.0/me/messages?access_token={PAGE_ACCESS_TOKEN}"
+    req = urllib.request.Request(url, data=data,
+                                 headers={"Content-Type": "application/json"}, method="POST")
+    try:
+        with urllib.request.urlopen(req) as r:
+            print(f"Sent image {img_key} to {recipient_id}: {r.read()[:80]}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode("utf-8", errors="replace")
+        print(f"Send image error {e.code}: {body}")
+    except Exception as e:
+        print(f"Send image error: {e}")
 
 
 def notify_telegram(user_id, user_message, bot_reply):
@@ -389,6 +473,23 @@ class WebhookHandler(BaseHTTPRequestHandler):
         """Верифікація webhook від Meta + Privacy Policy"""
         parsed = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed.query)
+
+        # Serve photos
+        if parsed.path.startswith("/photos/"):
+            filename = parsed.path[8:]  # remove /photos/
+            photo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "photos", filename)
+            if os.path.exists(photo_path) and filename.endswith(".jpg"):
+                with open(photo_path, "rb") as f:
+                    data = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", "image/jpeg")
+                self.send_header("Cache-Control", "public, max-age=86400")
+                self.end_headers()
+                self.wfile.write(data)
+            else:
+                self.send_response(404)
+                self.end_headers()
+            return
 
         # Privacy Policy page
         if parsed.path == "/privacy":
@@ -472,12 +573,18 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 reply = get_claude_reply(sender_id, message_text, image_url)
                 print(f"Reply: {reply[:100]}")
 
-                # Прибираємо [IMG:...] теги з тексту (фото поки не підтримуються)
+                # Парсимо [IMG:key] теги
                 import re
+                img_keys = re.findall(r'\[IMG:(\w+)\]', reply)
                 clean_reply = re.sub(r'\[IMG:[^\]]+\]', '', reply).strip()
 
-                # Відправляємо відповідь в Instagram
-                send_instagram_message(sender_id, clean_reply)
+                # Відправляємо текст
+                if clean_reply:
+                    send_instagram_message(sender_id, clean_reply)
+
+                # Відправляємо фото
+                for key in img_keys:
+                    send_instagram_image(sender_id, key)
 
                 # Сповіщуємо Telegram якщо потрібен менеджер
                 notify_telegram(sender_id, message_text, reply)
