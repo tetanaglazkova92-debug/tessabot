@@ -579,6 +579,13 @@ class WebhookHandler(BaseHTTPRequestHandler):
                     if len(processed_mids) > MAX_PROCESSED:
                         processed_mids.pop()
 
+                # Відхиляємо старі повідомлення (Instagram retry >5 хв)
+                import time
+                msg_time = event.get("timestamp", 0) / 1000
+                if msg_time and (time.time() - msg_time) > 300:
+                    print(f"⚠️ Old message ({int(time.time()-msg_time)}s ago), skipping")
+                    continue
+
                 message_text = message.get("text", "")
                 image_url    = None
 
