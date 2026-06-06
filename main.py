@@ -342,20 +342,32 @@ def get_claude_reply(user_id, message_text, image_url=None):
         conversation_history[user_id] = []
 
     # Формуємо контент повідомлення
+    image_ok = False
     if image_url:
+        print(f"🖼 Завантажую фото: {image_url[:140]}")
         try:
             req = urllib.request.Request(image_url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=10) as r:
-                image_data = base64.b64encode(r.read()).decode()
+            with urllib.request.urlopen(req, timeout=20) as r:
+                raw = r.read()
+                media_type = r.headers.get_content_type()
+            if media_type not in ("image/jpeg", "image/png", "image/gif", "image/webp"):
+                media_type = "image/jpeg"
+            image_data = base64.b64encode(raw).decode()
+            print(f"✅ Фото завантажено: {len(raw)} байт, тип {media_type}")
             content = [
-                {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image_data}},
+                {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": image_data}},
                 {"type": "text", "text": message_text or "Що це за модель на фото?"}
             ]
+            image_ok = True
         except Exception as e:
-            print(f"Image load error: {e}")
-            content = message_text or "Клієнт надіслав фото"
+            print(f"❌ Image load error: {e}")
     else:
         content = message_text
+
+    # Якщо клієнт надіслав фото, але завантажити його не вдалося —
+    # НЕ даємо моделі вигадувати модель навмання, а просимо переслати ще раз.
+    if image_url and not image_ok:
+        return "Вибачте, фото не відкрилося 🙈 Надішліть, будь ласка, ще раз або напишіть назву моделі 🤍"
 
     conversation_history[user_id].append({"role": "user", "content": content})
 
@@ -779,12 +791,18 @@ class WebhookHandler(BaseHTTPRequestHandler):
                 image_url    = None
 
                 # Обробка зображень та сторіс
-                for att in message.get("attachments", []):
+                attachments = message.get("attachments", [])
+                if attachments:
+                    print(f"📎 Вкладення: {json.dumps(attachments, ensure_ascii=False)[:400]}")
+                for att in attachments:
                     att_type = att.get("type", "")
-                    if att_type in ("image", "story_mention", "story_reply", "ig_reel"):
-                        image_url = att.get("payload", {}).get("url")
+                    if att_type in ("image", "story_mention", "story_reply", "ig_reel", "share"):
+                        url = att.get("payload", {}).get("url")
+                        if url:
+                            image_url = url
                         if not message_text:
                             message_text = att.get("title", "") or "Що це за модель на фото?"
+                print(f"➡️  image_url={'є' if image_url else 'НЕМАЄ'}, text={message_text[:60]!r}")
 
                 if not message_text and not image_url:
                     continue
